@@ -194,6 +194,14 @@ function briefText(t, links) {   // [12] → 원문 링크 (맥이 붙인 주소
   return esc(t).replace(/([0-9])️?⃣/g, (m, d) => '①②③④⑤⑥⑦⑧⑨'[d - 1] || d).replace(/\*\*/g, '')
     .replace(/\[(\d+)\]/g, (m, n) => L[n] ? `<a class="ref" href="${esc(L[n].url)}" target="_blank" rel="noopener" title="${esc(L[n].ch + ' · ' + L[n].t)}">[${n}]</a>` : `<span class="ref">[${n}]</span>`);
 }
+function newsBlocks(t, b, items) {   // 기사마다 [더보기] → 맥이 만든 요약(sum.js) · items=1면(①②③ 묶음) / 아니면 줄마다
+  const sum = b.sum || {}, L = {}; (b.links || []).forEach(l => { L[l.n] = l; });
+  const lines = String(t).split('\n'), chunks = [];
+  if (items) { lines.forEach(l => { if (/^\s*(?:[0-9]\uFE0F?\u20E3|[①-⑨]|\d[.)])/.test(l) || !chunks.length) chunks.push([l]); else chunks[chunks.length - 1].push(l); }); }
+  else lines.forEach(l => { if (l.trim()) chunks.push([l]); });
+  return chunks.map(c => { const tx = c.join('\n').trim(), refs = [...new Set([...tx.matchAll(/\[(\d+)\]/g)].map(m => m[1]))].filter(n => sum[n]);
+    return `<div class="nb"><p>${briefText(tx, b.links)}</p>${refs.length ? `<details class="nd"><summary>${ic('down', 'chev')}더보기 · 기사 요약 ${refs.length > 1 ? refs.length + '개' : ''}</summary>${refs.map(n => { const v = sum[n], l = L[n]; return `<div class="ns"><div class="nh"><span class="pill s">${esc(v.basis)}</span><span>${esc(l ? l.ch : '')}</span>${l ? `<a href="${esc(l.url)}" target="_blank" rel="noopener">원문 ${ic('ext')}</a>` : ''}</div><p>${esc(v.s)}</p>${v.why ? `<p class="why"><b>왜 중요?</b> ${esc(v.why)}</p>` : ''}</div>`; }).join('')}</details>` : ''}</div>`; }).join('');
+}
 function logicBody(t, links) {   // '이 논리에 쓰인 규칙: 병목' → 알약
   const m = t.match(/이 논리에 쓰인 규칙\s*[:：]\s*(.+)$/m), body = m ? t.replace(m[0], '').trim() : t;
   return `<p>${briefText(body, links)}</p>${m ? `<div class="chips"><span class="pill t-pri">이 논리에 쓰인 그의 규칙 · ${esc(m[1].replace(/\(.*$/, '').trim())}</span></div>` : ''}`;
@@ -214,8 +222,8 @@ function worldTab(D) {
     : `<section class="card bf"><h2>${ic('bulb')}오늘의 논리<small>${fd(b.date)} 브리핑</small></h2>${logic ? logicBody(logic.body, b.links) : '<p class="muted">오늘은 논리 칸이 없어요</p>'}
       ${q ? `<div class="lg-q"><b>편집장 질문</b>${briefText(q.body, b.links)}<textarea data-f="qa" data-k="${esc(b.date)}" aria-label="내 답 한 줄" placeholder="내 답 한 줄 — 맞고 틀리고 없이 내 생각만">${esc(((S.user.qa || {})[b.date] || {}).a || '')}</textarea></div>` : ''}
       ${qaHistory(b.date)}</section>`;
-  const front = !b ? '' : `<section class="card bf"><h2>${ic('news')}오늘의 1면<small>그의 '편집장' 방식으로 고른 3개</small></h2>${top ? `<p>${briefText(top.body, b.links)}</p>` : ''}
-    ${rest.length ? `<details class="more" data-act="more" ${S.open.brief ? 'open' : ''}><summary>전체 브리핑 보기 · ${rest.map(s => esc(s.title.replace(/\(.*?\)/g, '').trim())).join(' · ')}</summary>${rest.map(s => `<h3>${esc(s.title)}</h3><p>${briefText(s.body, b.links)}</p>`).join('')}</details>` : ''}</section>`;
+  const front = !b ? '' : `<section class="card bf"><h2>${ic('news')}오늘의 1면<small>그의 '편집장' 방식으로 고른 3개</small></h2>${top ? newsBlocks(top.body, b, true) : ''}
+    ${rest.length ? `<details class="more" data-act="more" ${S.open.brief ? 'open' : ''}><summary>전체 브리핑 보기 · ${rest.map(s => esc(s.title.replace(/\(.*?\)/g, '').trim())).join(' · ')}</summary>${rest.map(s => `<h3>${esc(s.title)}</h3>${['📰', '🏛'].includes(s.key) ? newsBlocks(s.body, b, false) : `<p>${briefText(s.body, b.links)}</p>`}`).join('')}</details>` : ''}</section>`;
   const latest = `<section class="card" id="c-latest"><h2>${ic('brain')}그의 최신 생각<small>팬딩 글·라이브</small></h2>${(mind.latest || []).map((v, i) => `<div class="li" ${i >= 3 ? 'data-x="1" hidden' : ''}><span class="dt">${fd(v.date)}</span><span class="muted" style="font-size:13px">${esc(v.kind)}</span>
       <div class="t"><a href="https://fanding.kr/@sesang101/post/${esc(String(v.id).replace(/v$/, ''))}/" target="_blank" rel="noopener">${esc(v.title)}</a></div><div class="v">${esc(v.view)}</div>${v.changed ? `<div class="c"><b>바뀐 점</b> · ${esc(v.changed)}</div>` : ''}</div>`).join('')}</section>`;
   const moves = `<section class="card" id="c-moves"><h2>${ic('arrows')}그의 최근 매매<small>글에서 말한 것만</small></h2>${(mind.moves || []).map((m, i) => `<div class="mv" ${i >= 3 ? 'data-x="1" hidden' : ''}><span class="dt">${fd(m.date)}</span><span><b>${esc(m.name)}</b> <span class="pill s">${esc(m.stance)}</span></span><span class="r">${esc(m.reason)}</span></div>`).join('')}</section>`;
