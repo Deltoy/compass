@@ -152,6 +152,8 @@ function saveText() { const s = S.save; return s.st === 'ing' ? '저장 중…' 
 const TABS = [['world', '오늘의 세상', 'globe'], ['cmp', '기업 비교', 'bld'], ['conv', '확신 노트', 'target']];
 function render() {
   const D = S.D, fa = document.activeElement, fk = fa && fa.dataset && fa.dataset.act ? [fa.dataset.act, fa.dataset.k || '', fa.dataset.i || ''] : null;
+  const dk = d => S.tab + '|' + (d.previousElementSibling || d.closest('section') || d).textContent.slice(0, 80) + '|' + ((d.querySelector('summary') || {}).textContent || '');   // 다시 그려도 펼친 더보기는 그대로
+  const opened = new Set([...document.querySelectorAll('#app details[open]')].map(dk));
   let body;
   try { body = S.tab === 'cmp' ? cmpTab(D) : S.tab === 'conv' ? convTab(D) : worldTab(D); }
   catch (e) { console.error(e); body = `<section class="card err-card"><h2>${ic('alert')}이 화면을 그리다 문제가 생겼어요</h2><p class="sub">다른 탭은 그대로 쓸 수 있어요. 맥 자료가 새로 오면 저절로 고쳐져요.</p><p class="muted" style="font-size:12px">${esc(e.message)}</p></section>`; }
@@ -162,6 +164,7 @@ function render() {
     <main class="main" id="main">${banners(D)}${body}<p class="note-ad">한정수(세상학개론) 팬딩 글·강의를 AI가 정리한 개인용 자료예요. 투자 권유가 아니고, 결정은 MJ가 해요.</p></main>
     <nav class="bnav" aria-label="화면">${nav()}</nav>`;
   if (fk) { const el = document.querySelector(`[data-act="${fk[0]}"][data-k="${CSS.escape(fk[1])}"]${fk[2] ? `[data-i="${CSS.escape(fk[2])}"]` : ''}`); if (el) el.focus({ preventScroll: true }); }
+  if (opened.size) document.querySelectorAll('#app details').forEach(d => { if (opened.has(dk(d))) d.open = true; });
   if (S.tab === 'world') requestAnimationFrame(balance);
 }
 function banners(D) {
@@ -413,5 +416,5 @@ document.addEventListener('change', e => {   // 점수 흐름은 손을 뗄 때 
   const last = hs[hs.length - 1]; if (last && Date.now() - last.at < 6 * 3600e3) { last.total = t; last.at = Date.now(); } else hs.push({ at: Date.now(), total: t }); if (hs.length > 60) hs.shift();
   queueSave();
 });
-addEventListener('resize', () => { if (S.tab === 'world' && S.D) { clearTimeout(S.rz); S.rz = setTimeout(softRender, 250); } });
+S.rw = innerWidth; addEventListener('resize', () => { if (innerWidth === S.rw) return; S.rw = innerWidth; if (S.tab === 'world' && S.D) { clearTimeout(S.rz); S.rz = setTimeout(softRender, 250); } });   // 1027 폭이 바뀔 때만 (휴대폰 스크롤로 주소창이 접히면 높이만 바뀜 → 다시 그리면 펼친 더보기가 접혔음)
 boot();
